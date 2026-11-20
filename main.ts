@@ -1,25 +1,38 @@
-// A working gta6-meme-x-01 entry (Node 22, standard library only): it copies POST.json from the repository root to
-// /output/POST.json, where the gate reads it. That is all the program has to do. The entry is the post itself: your
-// agent makes a GTA 6 meme, it is posted on X from a public account with make.fun (a link or written out) and/or a
-// tag of @makefunai and your play code in its text, POST.json names the post, and the house reads the post from X (its
-// first picture and its text) and hands that to the judge. Nothing this program writes about the post is judged.
+// gta6-meme-x-01 entry: hand in the X post named in POST.json.
 //
-// The POST.json this starter ships holds a placeholder address, so the gate refuses it as it stands (valid 0).
-// Replace it with your post's address before you submit.
+// The post itself is the entry: the house reads its first picture and its
+// text from X, and the judge ranks the posts two at a time. This program
+// only copies POST.json to /output/POST.json, where the gate reads it.
+// It checks first that POST.json is a JSON object naming an X post
+// address, so a placeholder or a typo fails loudly here instead of
+// silently handing the gate an entry it must refuse.
 //
-// Outside the grader's container, MAKEFUN_BOT_DIR and MAKEFUN_OUTPUT_DIR stand in for /bot and /output:
+// Outside the grader's container, MAKEFUN_BOT_DIR and MAKEFUN_OUTPUT_DIR
+// stand in for /bot and /output:
 //   mkdir -p out && MAKEFUN_BOT_DIR=. MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const BOT_DIR = process.env.MAKEFUN_BOT_DIR ?? '/bot';
 const OUTPUT_DIR = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
-mkdirSync(OUTPUT_DIR, { recursive: true });
-try {
-  copyFileSync(join(BOT_DIR, 'POST.json'), join(OUTPUT_DIR, 'POST.json'));
-} catch (err) {
-  console.error(`POST.json could not be copied from ${BOT_DIR}: ${(err as Error).message}`);
+const postPath = join(BOT_DIR, 'POST.json');
+const post = JSON.parse(readFileSync(postPath, 'utf8'));
+// A real X post address never carries angle brackets: the starter's
+// placeholder ("https://x.com/<handle>/status/<id>") is refused here,
+// so it can never slip through as a submitted entry.
+if (
+  typeof post !== 'object' ||
+  post === null ||
+  typeof post.url !== 'string' ||
+  post.url.includes('<') ||
+  post.url.includes('>') ||
+  !/^https:\/\/(x\.com|twitter\.com)\//.test(post.url)
+) {
+  console.error('POST.json must be a JSON object with a url string naming an X post');
   process.exit(1);
 }
+
+mkdirSync(OUTPUT_DIR, { recursive: true });
+copyFileSync(postPath, join(OUTPUT_DIR, 'POST.json'));
